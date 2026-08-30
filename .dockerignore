@@ -1,0 +1,7 @@
+node_modules
+tokens
+debug
+temp-browser-profile
+.env
+.git
+*.md

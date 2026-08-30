@@ -1,0 +1,11 @@
+services:
+  onstar2ha:
+    build: .
+    container_name: onstar2ha-blazer
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ONSTAR_TOKEN_LOCATION: /app/tokens/
+    volumes:
+      # Persist auth tokens across restarts to avoid re-triggering GM's bot detection
+      - ./tokens:/app/tokens
