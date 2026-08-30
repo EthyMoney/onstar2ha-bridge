@@ -1,5 +1,6 @@
 services:
   onstar2ha:
+    image: ultimate360/onstar2ha-bridge:latest
     build: .
     container_name: onstar2ha-blazer
     restart: unless-stopped
