@@ -1,6 +1,7 @@
 # OnStarJS auth drives a real (patchright/Chromium) browser for GM login,
 # so the image needs Chromium's runtime libraries.
-FROM node:22-bookworm-slim
+# Node 24 LTS (Krypton); slim variant, hence the explicit Chromium runtime deps below
+FROM node:krypton-bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \

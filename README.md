@@ -28,7 +28,7 @@ One "Blazer EV" device with:
    - Choose "Third-Party Authenticator App" as your MFA method.
    - During setup, capture the **TOTP secret key** (hover/inspect the link under the QR code,
      or view it in an authenticator like Bitwarden/Stratum). That's your `ONSTAR_TOTP_KEY`.
-4. Node.js 20+ (or Docker).
+4. Node.js 24+ (or Docker).
 5. **Accurate system clock** (NTP) — TOTP auth fails with clock drift.
 
 ## Setup
@@ -60,6 +60,16 @@ docker compose logs -f
 
 Tokens are cached in `./tokens/` so the full browser login only happens rarely.
 **Keep that folder persistent** — re-authenticating too often trips GM's bot detection.
+
+### Publish the image to Docker Hub (maintainers)
+
+```bash
+docker login
+npm run docker:deploy   # build ultimate360/onstar2ha-bridge:<version> and :latest, then push both
+```
+
+`npm run docker:build` and `npm run docker:push` run the two halves separately.
+The version tag comes from `package.json`, so bump it there before a release.
 
 ## MQTT topics
 

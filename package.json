@@ -5,20 +5,23 @@
   "type": "module",
   "main": "src/index.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "start": "node src/index.js",
-    "vehicles": "node src/tools/list-vehicles.js"
+    "vehicles": "node src/tools/list-vehicles.js",
+    "docker:build": "node scripts/docker.mjs build",
+    "docker:push": "node scripts/docker.mjs push",
+    "docker:deploy": "node scripts/docker.mjs deploy"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "mqtt": "^5.10.1",
-    "onstarjs2": "^2.16.6"
+    "dotenv": "^18.0.9",
+    "mqtt": "^5.16.1",
+    "onstarjs2": "^2.16.7"
   },
   "license": "MIT",
   "allowScripts": {
-    "onstarjs2@2.16.6": true,
+    "onstarjs2@2.16.7": true,
     "sleep@6.1.0": true
   }
 }
