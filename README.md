@@ -116,7 +116,8 @@ Everything lives under `onstar2ha/<VIN>/`:
   extension's sign-in is refused too, wait a few days and check that the myChevrolet app
   still lets you in.
 - **"GM API token was missing vehicle information"**: GM occasionally returns an incomplete
-  token. The bridge keeps the saved login and simply tries again on the next poll. (Older
+  token. The bridge keeps the saved login, pauses for a few minutes and tries again on the
+  next poll. (Older
   versions threw the login away here; any `*.old` token files left behind are restored
   automatically at startup.)
 - **Upgrading `onstarjs2`**: the version is pinned because `scripts/patch-onstarjs.mjs`

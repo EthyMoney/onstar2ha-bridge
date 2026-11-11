@@ -23,12 +23,13 @@ export class OnStarClient {
         throw new Error(`Skipping "${name}": ${blocked}`);
       }
       logger.debug(`OnStar request: ${name}`);
+      const tokenStamp = this.guard.tokenStamp();
       try {
         const result = await fn(this.client);
         this.guard.recordSuccess();
         return result;
       } catch (err) {
-        this.guard.recordFailure(err);
+        this.guard.recordFailure(err, tokenStamp);
         throw err;
       }
     };

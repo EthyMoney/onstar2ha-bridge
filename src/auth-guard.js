@@ -5,6 +5,9 @@ import { logger } from "./logger.js";
 const HOUR = 60 * 60 * 1000;
 const MAX_BLOCK_MS = 7 * 24 * HOUR;
 
+// GM sometimes returns a token without vehicle info; the saved login is still good.
+const INCOMPLETE_TOKEN = /missing vehicle information/i;
+const INCOMPLETE_TOKEN_PAUSE_MS = 4 * 60 * 1000;
 const LOGIN_REQUIRED = /manual sign-in required/i;
 // Failures of the scripted browser login (only reachable with ONSTAR_BROWSER_LOGIN=true).
 const BROWSER_LOGIN_FAILED =
@@ -73,16 +76,20 @@ export class AuthGuard {
     const { loginRequired, blockedUntil = 0 } = this.state;
     if (!loginRequired && Date.now() >= blockedUntil) return null;
     const stamp = this.tokenStamp();
-    if (stamp !== 0 && stamp !== this.state.tokenStamp) {
+    // A transient pause just runs out: the library itself may have refreshed
+    // the token file during the failed request, which is not a new login.
+    if (!this.state.transient && stamp !== 0 && stamp !== this.state.tokenStamp) {
       logger.info("New microsoft_tokens.json detected, resuming OnStar requests");
       // Keep the strike count: if this login fails too, the next pause is longer.
       this.state = { strikes: this.state.strikes };
       this.saveState();
       return null;
     }
-    return loginRequired
-      ? "login required"
-      : `login paused until ${new Date(blockedUntil).toISOString()}`;
+    if (loginRequired) return "login required";
+    const until = new Date(blockedUntil).toISOString();
+    return this.state.transient
+      ? `GM returned an incomplete token, retrying after ${until}`
+      : `login paused until ${until}`;
   }
 
   recordSuccess() {
@@ -91,10 +98,22 @@ export class AuthGuard {
     this.saveState();
   }
 
-  recordFailure(err) {
+  // tokenStamp: tokenStamp() taken before the failed request started, so a
+  // token file swapped in while it was in flight still counts as new.
+  recordFailure(err, tokenStamp = this.tokenStamp()) {
     const message = err?.message ?? String(err);
-    if (LOGIN_REQUIRED.test(message)) {
-      this.state = { ...this.state, loginRequired: true, tokenStamp: this.tokenStamp() };
+    if (INCOMPLETE_TOKEN.test(message)) {
+      // Short pause so the rest of this poll doesn't repeat the token exchange.
+      // Not a login failure: no strike, and never shortens a longer pause.
+      const blockedUntil = Date.now() + INCOMPLETE_TOKEN_PAUSE_MS;
+      if (this.state.loginRequired || (this.state.blockedUntil ?? 0) >= blockedUntil) return;
+      this.state = { strikes: this.state.strikes, blockedUntil, transient: true };
+      this.saveState();
+      logger.warn(
+        `GM returned a token without vehicle information. Keeping the saved login and pausing requests until ${new Date(blockedUntil).toISOString()}.`,
+      );
+    } else if (LOGIN_REQUIRED.test(message)) {
+      this.state = { strikes: this.state.strikes, loginRequired: true, tokenStamp };
       this.saveState();
       logger.error(
         "OnStar login required. Requests are paused until a new microsoft_tokens.json " +
@@ -106,7 +125,7 @@ export class AuthGuard {
       const strikes = (this.state.strikes ?? 0) + 1;
       const blockedUntil =
         Date.now() + Math.min(6 * HOUR * 2 ** (strikes - 1), MAX_BLOCK_MS);
-      this.state = { strikes, blockedUntil, tokenStamp: this.tokenStamp() };
+      this.state = { strikes, blockedUntil, tokenStamp };
       this.saveState();
       logger.error(
         `GM rejected the browser login (failure #${strikes}). Pausing all requests until ` +
