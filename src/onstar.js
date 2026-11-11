@@ -1,33 +1,35 @@
 import OnStar from "onstarjs2";
 import { logger } from "./logger.js";
+import { AuthGuard } from "./auth-guard.js";
 
 // Serializes all OnStar calls (GM's API dislikes concurrent requests) and
-// backs off for several hours when auth is blocked with "Access Denied".
+// stops sending requests while the AuthGuard says the GM login is unusable.
 export class OnStarClient {
   constructor(onstarConfig) {
     this.client = OnStar.create(onstarConfig);
+    this.guard = new AuthGuard(onstarConfig.tokenLocation);
     this.queue = Promise.resolve();
-    this.blockedUntil = 0;
+  }
+
+  // Reason requests are currently paused (string), or null when they can go out.
+  blockedReason() {
+    return this.guard.blockedReason();
   }
 
   call(name, fn) {
     const run = async () => {
-      if (Date.now() < this.blockedUntil) {
-        throw new Error(
-          `Skipping "${name}": auth blocked until ${new Date(this.blockedUntil).toISOString()} after Access Denied`,
-        );
+      const blocked = this.guard.blockedReason();
+      if (blocked) {
+        throw new Error(`Skipping "${name}": ${blocked}`);
       }
       logger.debug(`OnStar request: ${name}`);
+      const tokenStamp = this.guard.tokenStamp();
       try {
-        return await fn(this.client);
+        const result = await fn(this.client);
+        this.guard.recordSuccess();
+        return result;
       } catch (err) {
-        if (/access denied/i.test(err?.message ?? "")) {
-          // GM bot detection: retrying immediately makes it worse.
-          this.blockedUntil = Date.now() + 6 * 60 * 60 * 1000;
-          logger.error(
-            `Access Denied from GM auth. Pausing all requests until ${new Date(this.blockedUntil).toISOString()}.`,
-          );
-        }
+        this.guard.recordFailure(err, tokenStamp);
         throw err;
       }
     };

@@ -1,6 +1,6 @@
 {
   "name": "onstarjs-2-ha-blazer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Bridge between a GM/Chevy EV (Blazer EV) and Home Assistant via OnStarJS and MQTT discovery",
   "type": "module",
   "main": "src/index.js",
@@ -8,6 +8,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "postinstall": "node scripts/patch-onstarjs.mjs",
     "start": "node src/index.js",
     "vehicles": "node src/tools/list-vehicles.js",
     "docker:build": "node scripts/docker.mjs build",
@@ -17,7 +18,7 @@
   "dependencies": {
     "dotenv": "^18.0.9",
     "mqtt": "^5.16.1",
-    "onstarjs2": "^2.16.7"
+    "onstarjs2": "2.16.7"
   },
   "license": "MIT",
   "allowScripts": {
