@@ -35,7 +35,9 @@ WORKDIR /app
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 COPY package.json package-lock.json* ./
-# onstarjs2's postinstall runs "patchright install chromium"
+COPY scripts ./scripts
+# onstarjs2's postinstall runs "patchright install chromium";
+# ours (scripts/patch-onstarjs.mjs) then patches its login handling
 RUN npm install --omit=dev
 
 COPY src ./src

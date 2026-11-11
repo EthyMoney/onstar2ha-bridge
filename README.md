@@ -46,7 +46,7 @@ Generate a random v4 UUID once for `ONSTAR_DEVICE_ID` and never change it
 ### Run directly
 
 ```bash
-npm install     # postinstall downloads a patched Chromium for the GM login flow
+npm install     # postinstall downloads Chromium (optional browser login) and patches onstarjs2
 npm run vehicles   # optional: verify auth + list VINs on your account
 npm start
 ```
@@ -58,8 +58,26 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-Tokens are cached in `./tokens/` so the full browser login only happens rarely.
-**Keep that folder persistent** — re-authenticating too often trips GM's bot detection.
+Tokens are cached in `./tokens/`. **Keep that folder persistent** — it holds your saved GM login.
+
+### Signing in (first run, and about every 60 days)
+
+GM's bot detection now blocks scripted logins, so the bridge does not try to log in by
+itself. Instead you sign in once in your own browser and hand it the resulting token file:
+
+1. Install the [OnStar Auth Token Saver](https://github.com/metheos/onstar_firefox) Firefox
+   extension and sign in to your GM/Chevrolet account with it, including the verification step.
+2. Copy the `microsoft_tokens.json` it saves into the token folder (`./tokens/`, or wherever
+   `/app/tokens` is mapped). Treat this file like a password.
+3. That's it — the bridge notices the new file on its next poll (no restart needed) and keeps
+   it refreshed for about 60 days.
+
+While it is waiting for a sign-in, the **Poll Status** sensor in Home Assistant reads
+`login required` and no requests are sent to GM.
+
+Setting `ONSTAR_BROWSER_LOGIN=true` re-enables the old automatic browser login (one attempt,
+then an increasing pause of 6 hours up to 7 days after each failure). Not recommended: failed
+attempts make GM's block last longer.
 
 ### Publish the image to Docker Hub (maintainers)
 
@@ -90,11 +108,20 @@ Everything lives under `onstar2ha/<VIN>/`:
 - **Polling interval**: default 30 minutes. GM rate-limits aggressively; polling more often
   than every ~10–15 minutes risks temporary blocks. `refresh_ev` wakes the vehicle and uses
   more 12V battery — use it sparingly.
-- **"Access Denied" errors**: GM's bot detection. The bridge automatically pauses all
-  requests for 6 hours when this happens. Don't restart-loop the app — waiting is the fix.
-  If it persists, generate `microsoft_tokens.json` manually with the
-  [OnStar Auth Token Saver Firefox extension](https://github.com/metheos/onstar_firefox)
-  and drop it into your token folder; it will be used and refreshed for ~60 days.
+- **Poll Status says `login required`**: the saved login is missing, expired or was rejected.
+  Follow [Signing in](#signing-in-first-run-and-about-every-60-days). Restarting won't help
+  (and won't hurt — the paused state is remembered in `tokens/auth_state.json`).
+- **"Access Denied" errors**: GM's bot detection, only reachable with
+  `ONSTAR_BROWSER_LOGIN=true`. Turn that off and sign in with the Firefox extension. If the
+  extension's sign-in is refused too, wait a few days and check that the myChevrolet app
+  still lets you in.
+- **"GM API token was missing vehicle information"**: GM occasionally returns an incomplete
+  token. The bridge keeps the saved login and simply tries again on the next poll. (Older
+  versions threw the login away here; any `*.old` token files left behind are restored
+  automatically at startup.)
+- **Upgrading `onstarjs2`**: the version is pinned because `scripts/patch-onstarjs.mjs`
+  patches its login handling at install time. The install fails loudly if the patch no
+  longer applies.
 - **Lock state is optimistic** — OnStar doesn't report live lock status, so the lock entity
   reflects the last command sent from HA.
 - **Charge target slider** seeds itself from EV metrics when the vehicle reports it.

@@ -125,6 +125,12 @@ async function pollAll({ forceEVRefresh = false } = {}) {
     logger.warn("Poll already in progress, skipping");
     return;
   }
+  const blocked = onstar.blockedReason();
+  if (blocked) {
+    logger.warn(`Skipping poll: ${blocked}`);
+    publish(`${base}/poll_status/state`, blocked);
+    return;
+  }
   polling = true;
   publish(`${base}/poll_status/state`, "polling");
   const tasks = [
@@ -145,7 +151,9 @@ async function pollAll({ forceEVRefresh = false } = {}) {
   publish(`${base}/last_poll/state`, new Date().toISOString());
   publish(
     `${base}/poll_status/state`,
-    failures === 0 ? "ok" : `${failures} task(s) failed`,
+    failures === 0
+      ? "ok"
+      : (onstar.blockedReason() ?? `${failures} task(s) failed`),
   );
   polling = false;
 }
